@@ -21,9 +21,9 @@ function sleep(ms) {
 }
 
 // second, minute, hour, day of month, month, day of week
-const j = schedule.scheduleJob("17 46 * * * *", async (req, res) => {
+const j = schedule.scheduleJob("17 46 * * * *", async () => {
   sleep(2000);
-  logger.info("weather access");
+  logger.info("shortTermLive access");
 
   const numOfRows = "10";
 
@@ -39,46 +39,56 @@ const j = schedule.scheduleJob("17 46 * * * *", async (req, res) => {
       `http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst?serviceKey=${process.env.SERVICEKEY}&numOfRows=${numOfRows}&pageNo=1&base_date=${baseDate}&base_time=${baseTime}00
       &nx=70&ny=70&dataType=JSON`
     );
-    const data = await result.data.response.body.items.item;
+
+    const getData = await result.data.response.body.items.item;
+
+    getData.map((data) => {
+      if (data.category === "PTY") {
+        pty = data.obsrValue;
+      }
+      if (data.category === "REH") {
+        reh = data.obsrValue;
+      }
+      if (data.category === "RN1") {
+        rn1 = data.obsrValue;
+      }
+      if (data.category === "T1H") {
+        t1h = data.obsrValue;
+      }
+      if (data.category === "UUU") {
+        uuu = data.obsrValue;
+      }
+      if (data.category === "VEC") {
+        vec = data.obsrValue;
+      }
+      if (data.category === "VVV") {
+        vvv = data.obsrValue;
+      }
+      if (data.category === "WSD") {
+        wsd = data.obsrValue;
+      }
+    });
 
     const dataResult = await axios.post("http://localhost:3200/weather", {
-      data,
+      pty,
+      reh,
+      rn1,
+      t1h,
+      uuu,
+      vec,
+      vvv,
+      wsd,
     });
+
+    console.log(dataResult.data.header);
   } catch (error) {
-    logger.error("weather error message:", error);
+    logger.error("shortTermLive error message:", error);
   }
 });
 
-const k = schedule.scheduleJob("11 0 2 * * * ", async (req, res) => {
+// 00 00 * * * *
+const l = schedule.scheduleJob("00 00 * * * * ", async () => {
   sleep(2000);
-  logger.info("daily_max_min_temp access");
-
-  const numOfRows = "264";
-
-  let baseDate = moment().format("YYYYMMDD");
-  let baseTime = "0200";
-
-  try {
-    const getTemp = await axios.get(
-      `http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${process.env.SERVICEKEY}&numOfRows=${numOfRows}&pageNo=1&base_date=${baseDate}&base_time=${baseTime}&nx=70&ny=70&dataType=JSON`
-    );
-    const tmn = await getTemp.data.response.body.items.item[44].fcstValue;
-    const tmx = await getTemp.data.response.body.items.item[144].fcstValue;
-
-    const setData = await axios.post(
-      "http://localhost:3200/weather/daily/temp",
-      {
-        tmn,
-        tmx,
-      }
-    );
-    return;
-  } catch (error) {
-    logger.error("daily_max_min_temp error message:", error);
-  }
-});
-
-const l = schedule.scheduleJob("00 00 * * * * ", async (req, res) => {
   logger.info("shortTermForecast access");
 
   const numOfRows = "44";
@@ -86,86 +96,129 @@ const l = schedule.scheduleJob("00 00 * * * * ", async (req, res) => {
   let nowTime = moment().format("HH");
   let baseDate = moment().format("YYYYMMDD");
   let baseTime = "";
-  let i = 0;
-  let tmp, uuu, vvv, vec, wsd, sky, pty, pop, pcp, reh, sno, data;
+  let tmp, uuu, vvv, vec, wsd, sky, pty, pop, wav, pcp, reh, sno;
 
   try {
     if (Number(nowTime) > 2 && Number(nowTime) <= 5) {
       baseTime = "0200";
-      i = nowTime - 3;
     } else if (Number(nowTime) > 5 && Number(nowTime) <= 8) {
       baseTime = "0500";
-      i = nowTime - 6;
     } else if (Number(nowTime) > 8 && Number(nowTime) <= 11) {
       baseTime = "0800";
-      i = nowTime - 9;
     } else if (Number(nowTime) > 11 && Number(nowTime) <= 14) {
       baseTime = "1100";
-      i = nowTime - 12;
     } else if (Number(nowTime) > 14 && Number(nowTime) <= 17) {
       baseTime = "1400";
-      i = nowTime - 15;
     } else if (Number(nowTime) > 17 && Number(nowTime) <= 20) {
       baseTime = "1700";
-      i = nowTime - 18;
     } else if (Number(nowTime) > 20 && Number(nowTime) <= 23) {
       baseTime = "2000";
-      i = nowTime - 21;
-    } else if (Number(nowTime) > 23) {
-      baseTime = "2300";
-      i = 0;
-    } else if (Number(nowTime) > 0 && Number(nowTime) <= 2) {
+    } else if (Number(nowTime) >= 0 && Number(nowTime) <= 2) {
       baseDate = moment().subtract(1, "days").format("YYYYMMDD");
       baseTime = "2300";
-      i = nowTime - 1;
     }
-
     const result = await axios.get(
       `http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${process.env.SERVICEKEY}&numOfRows=${numOfRows}&pageNo=1&base_date=${baseDate}&base_time=${baseTime}&nx=70&ny=70&dataType=JSON`
     );
-    const resultData = await result.data.response.body.items;
+    const resultData = await result.data.response.body.items.item;
 
-    function getShortTermForecast(num) {
-      tmp = resultData.item[num].fcstValue;
-      uuu = resultData.item[num + 1].fcstValue;
-      vvv = resultData.item[num + 2].fcstValue;
-      vec = resultData.item[num + 3].fcstValue;
-      wsd = resultData.item[num + 4].fcstValue;
-      sky = resultData.item[num + 5].fcstValue;
-      pty = resultData.item[num + 6].fcstValue;
-      pop = resultData.item[num + 7].fcstValue;
-      pcp = resultData.item[num + 8].fcstValue;
-      reh = resultData.item[num + 9].fcstValue;
-      sno = resultData.item[num + 10].fcstValue;
+    resultData.map((data) => {
+      if (data.category === "TMP" && data.fcstTime === nowTime + "00") {
+        tmp = data.fcstValue;
+      }
+      if (data.category === "UUU" && data.fcstTime === nowTime + "00") {
+        uuu = data.fcstValue;
+      }
+      if (data.category === "VVV" && data.fcstTime === nowTime + "00") {
+        vvv = data.fcstValue;
+      }
+      if (data.category === "VEC" && data.fcstTime === nowTime + "00") {
+        vec = data.fcstValue;
+      }
+      if (data.category === "WSD" && data.fcstTime === nowTime + "00") {
+        wsd = data.fcstValue;
+      }
+      if (data.category === "SKY" && data.fcstTime === nowTime + "00") {
+        sky = data.fcstValue;
+      }
+      if (data.category === "PTY" && data.fcstTime === nowTime + "00") {
+        pty = data.fcstValue;
+      }
+      if (data.category === "pop" && data.fcstTime === nowTime + "00") {
+        pop = data.fcstValue;
+      }
+      if (data.category === "WAV" && data.fcstTime === nowTime + "00") {
+        wav = data.fcstValue;
+      }
+      if (data.category === "PCP" && data.fcstTime === nowTime + "00") {
+        pcp = data.fcstValue;
+      }
+      if (data.category === "REH" && data.fcstTime === nowTime + "00") {
+        reh = data.fcstValue;
+      }
+      if (data.category === "SNO" && data.fcstTime === nowTime + "00") {
+        sno = data.fcstValue;
+      }
+    });
 
-      return {
-        tmp,
-        uuu,
-        vvv,
-        vec,
-        wsd,
-        sky,
-        pty,
-        pop,
-        pcp,
-        reh,
-        sno,
-      };
-    }
-    if (i === 0) {
-      data = getShortTermForecast(0);
-    } else if (i === 1) {
-      data = getShortTermForecast(11);
-    } else if (i === 2) {
-      data = getShortTermForecast(22);
-    }
-
-    const setData = await axios.post(
-      "http://localhost:3200/weather/short",
-      data
-    );
+    const dataResult = await axios.post("http://localhost:3200/weather", {
+      tmp,
+      uuu,
+      vvv,
+      vec,
+      wsd,
+      sky,
+      pty,
+      pop,
+      wav,
+      pcp,
+      reh,
+      sno,
+    });
+    console.log(dataResult.data.header);
   } catch (error) {
-    logger.error("short error message:", error);
+    logger.error("shortTermForecast error message:", error);
+  }
+});
+
+// second, minute, hour, day of month, month, day of week
+const maxAndMin = schedule.scheduleJob(" 11 0 2 * * ", async () => {
+  logger.info("test access");
+
+  const numOfRows = "158";
+
+  let baseDate = moment().format("YYYYMMDD");
+  let baseTime = "0200";
+  let tmn, tmx;
+
+  try {
+    const getTemp = await axios.get(
+      `http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${process.env.SERVICEKEY}&numOfRows=${numOfRows}&pageNo=1&base_date=${baseDate}&base_time=${baseTime}&nx=70&ny=70&dataType=JSON`
+    );
+    const itemData = await getTemp.data.response.body.items.item;
+
+    itemData.map((data) => {
+      if (data.category === "TMN" && data.fcstTime === "0600") {
+        tmn = data.fcstValue;
+      }
+      if (data.category === "TMX" && data.fcstTime === "1500") {
+        tmx = data.fcstValue;
+      }
+    });
+    console.log("tmn값은?" + tmn);
+    console.log("tmx값은?" + tmx);
+
+    const result = await axios.post(
+      "http://localhost:3200/weather/daily/temp",
+      {
+        tmn,
+        tmx,
+      }
+    );
+
+    console.log(result.data.header);
+  } catch (error) {
+    logger.error("test error message:", error);
   }
 });
 
@@ -173,8 +226,7 @@ app.use((req, res, next) => {
   response.header.resultCode = "03";
   response.header.resultMsg = "HTTP_ERROR ";
   response.header.receiveMethodAndUrl = `${req.method} ${req.url}`;
-  logger.info("method, url error");
-  logger.error(error.message);
+  logger.error("method, url error message: ", error.message);
   res.status(404).json(response);
   next(error);
 });

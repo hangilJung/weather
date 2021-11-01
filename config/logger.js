@@ -35,14 +35,14 @@ const opts = {
   }),
   infoDaily: new winstonDaily({
     filename: "%DATE%.access.log",
-    dirname: "./logs/%DATE%",
+    dirname: "./logs",
     level: "info",
     maxFiles: 7,
     format: printLogFormat.file,
   }),
   errorDaily: new winstonDaily({
     filename: "%DATE%.error.log",
-    dirname: "./logs/%DATE%",
+    dirname: "./logs",
     level: "error",
     maxFiles: 30,
     format: printLogFormat.file,
